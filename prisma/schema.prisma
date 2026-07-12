@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  COACH
+  PLAYER
+}
+
+enum TeamRole {
+  MAIN_COACH
+  SEC_COACH
+  PLAYER
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(PLAYER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships TeamMember[]
+  paymentsMade Payment[] @relation("PlayerPayments")
+  paymentsRec Payment[] @relation("CoachPayments")
+  rosters     Roster[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  category  String
+  createdAt DateTime @default(now())
+
+  members TeamMember[]
+  matches Match[]
+}
+
+model TeamMember {
+  id         String   @id @default(uuid())
+  userId     String
+  teamId     String
+  roleInTeam TeamRole @default(PLAYER)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model Payment {
+  id       String   @id @default(uuid())
+  playerId String
+  coachId  String
+  amount   Float
+  month    String
+  paidAt   DateTime @default(now())
+
+  player User @relation("PlayerPayments", fields: [playerId], references: [id])
+  coach  User @relation("CoachPayments", fields: [coachId], references: [id])
+}
+
+model Match {
+  id          String      @id @default(uuid())
+  teamId      String
+  opponent    String
+  date        DateTime
+  location    String
+  status      MatchStatus @default(SCHEDULED)
+  currentSet  Int         @default(1)
+  ourTotalSets Int        @default(0)
+  oppTotalSets Int        @default(0)
+
+  team   Team       @relation(fields: [teamId], references: [id])
+  sets   MatchSet[]
+  roster Roster[]
+}
+
+model MatchSet {
+  id        String @id @default(uuid())
+  matchId   String
+  setNumber Int
+  ourPoints Int    @default(0)
+  oppPoints Int    @default(0)
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, setNumber])
+}
+
+model Roster {
+  id       String @id @default(uuid())
+  matchId  String
+  playerId String
+  status   String @default("PENDING") // PENDING, CONFIRMED, DECLINED
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player User  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId])
+}
+
+model Announcement {
+  id           String   @id @default(uuid())
+  title        String
+  content      String
+  targetTeamId String?
+  createdAt    DateTime @default(now())
+}

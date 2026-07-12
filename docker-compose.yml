@@ -1,0 +1,48 @@
+volumes:
+  pgdata:
+  appdata:
+
+networks:
+  voley_net:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sierra-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sierra
+      POSTGRES_PASSWORD: sierra123
+      POSTGRES_DB: sierra_elvira
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - voley_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sierra -d sierra_elvira"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sierra-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://sierra:sierra123@db:5432/sierra_elvira?schema=public
+    volumes:
+      - appdata:/app/.next/cache
+    networks:
+      - voley_net
